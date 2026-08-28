@@ -19,23 +19,55 @@ NetSage AI is an AI-assisted troubleshooting copilot tailored for Cisco-style la
    - **Deterministic Cross-checking (`rule_checker.py`):** A pure Python script that acts as a guardrail against AI hallucinations. It detects deterministic errors like duplicate IPs, subnet mismatches, or administratively down interfaces.
    - **AI Prompting Logic (`diagnose_prompt.md`):** Contains the core system prompts used to constrain the LLM into generating strict, evidence-backed JSON responses.
 
-### Directory Structure
+## Full User Flow & Page Breakdown
 
-The project has been organized into a clean, modular structure:
+The application is structured into a logical flow to guide engineers from encountering an issue to documenting its resolution, with built-in human oversight.
 
-- `frontend/` - Contains all the React/Vite code.
-- `backend/` - Contains the FastAPI server, database scripts, and the `rule_checker`.
-  - `backend/data/` - Holds the `cases.csv` dataset acting as the ground truth.
-- `PRD.md` & `TechStack.md` - Core project documentation.
+### 1. Landing Page
+- **Use:** The entry point to the application.
+- **Description:** A light, Cisco-themed hero page that pitches the product. It features a clear "Enter Console" call-to-action (CTA) to draw the user into the main application.
 
-## User Roles & Workflow
+### 2. Login (Welcome / Reviewer Setup)
+- **Use:** Establishes lightweight, session-based identity.
+- **Description:** A simple setup screen where users enter their Name and select a Role (Junior Engineer or Senior Reviewer). This data is stored in the browser's session storage. There is no formal backend authentication system required for this scope, making it easy to test and switch users on the fly.
 
-- **Junior Engineer:** Encounters a fault in a lab, runs show commands, and inputs the symptoms and outputs into NetSage AI. The engineer relies on the AI's suggested root cause and "next command" but cannot apply fixes until approved.
-- **Senior Reviewer:** Reviews the AI's diagnosis in the "Review Queue". They ensure the AI cited the correct evidence and either Accept, Edit, or Reject the diagnosis. Escalated or difficult cases are handled exclusively by this role.
+### 3. Overview
+- **Use:** The main dashboard providing a high-level view of system health and metrics.
+- **Description:** Features at-a-glance stat cards (Total Cases, AI-Human Agreement, etc.), a Reviewer Verdicts donut chart, Cases by Severity bar chart, and an AI Confidence Calibration chart. It helps managers and engineers see the aggregate performance of the AI and the team.
+
+### 4. Cases
+- **Use:** The master view of the entire dataset.
+- **Description:** A comprehensive, searchable, and filterable list of all cases in the system. Users can browse past incidents to see what faults were diagnosed and how they were resolved.
+
+### 5. New Diagnosis
+- **Use:** Where the core troubleshooting happens.
+- **Description:** A live input form where engineers submit symptom text, paste show-command output, and optionally upload a screenshot. Hitting "Run Diagnosis" queries the AI, which returns a structured card detailing the root cause, confidence level, cited evidence, and the next command to run. The engineer can then send it to the Review Queue.
+
+### 6. Review Queue
+- **Use:** A holding area for unverified AI diagnoses.
+- **Description:** Displays a list of cases that have been generated but not yet reviewed by a human. It is sorted by severity, ensuring critical issues are addressed first. Reviewers open these cases to Accept, Edit, or Reject the AI's findings.
+
+### 7. My Reviews
+- **Use:** A personalized log of past actions.
+- **Description:** Shows all cases previously reviewed by the currently logged-in user. It is filterable by verdict and opens cases in a read-only state, acting as a personal audit trail.
+
+### 8. Escalations
+- **Use:** A specialized queue for difficult or recurring issues.
+- **Description:** Contains cases flagged for senior-level review (e.g., due to low AI confidence or repeated rejections). Only users with the **Senior Reviewer** role can resolve cases in this queue, enforcing a strict hierarchy for complex faults.
+
+### 9. Responsible AI Log
+- **Use:** Transparency and accountability for AI mistakes.
+- **Description:** A filtered view showing only cases that were Edited or Rejected by humans. It provides a side-by-side comparison of "AI Suggested" vs "Human Corrected," along with a callout explaining why the correction was made, demonstrating responsible AI usage.
+
+### 10. Playbooks
+- **Use:** Institutional knowledge and procedure reference.
+- **Description:** A searchable library of proven fix procedures grouped by fault type (e.g., VLAN mismatch, DNS failure). Each playbook outlines numbered fix steps and links to related historical case IDs, allowing engineers to fix known issues without running a new AI query.
+
+### 11. Rule Checker
+- **Use:** A deterministic safety net.
+- **Description:** Displays the results of a pure Python script (`rule_checker.py`) that cross-checks configurations without relying on AI. It catches objective errors like duplicate IPs or mask mismatches. The page shows a summary row and finding cards linked to specific cases, proving that the application doesn't rely solely on generative AI.
 
 ## Running the Application Locally
-
-The application runs using two distinct servers:
 
 1. **Start the Backend:**
    ```bash
@@ -52,12 +84,6 @@ The application runs using two distinct servers:
    npm run dev
    ```
    *The frontend will be available at `http://localhost:5173`.*
-
-## Unique Selling Points (USPs)
-
-- **Never Auto-Applied:** By design, NetSage AI does not auto-fix problems. It strictly requires human review, building a *Responsible AI Log*.
-- **Hybrid Troubleshooting:** Merges generative AI intuition with a deterministic Python rule-checker to catch obvious misconfigurations.
-- **Role-based Escalation:** Ensures that uncertain or repeated issues are bubbled up to senior team members.
 
 ---
 *This file serves as a high-level summary of the NetSage AI architecture and built features.*
