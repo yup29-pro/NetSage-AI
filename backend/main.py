@@ -11,6 +11,11 @@ import csv
 
 from init_db import init_db, DB_PATH
 import rule_checker
+import llm_helper
+import dotenv
+
+dotenv.load_dotenv()
+
 
 app = FastAPI(
     title="NetSage AI API",
@@ -54,6 +59,27 @@ class DiagnosisRequest(BaseModel):
 class RuleCheckPayload(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
+class CaseCreate(BaseModel):
+    id: Optional[str] = None
+    fault_type: str
+    concept_tag: Optional[str] = ""
+    osi_layer: str
+    severity: str
+    symptom: str
+    topology_note: Optional[str] = ""
+    show_output: str
+    expected_root_cause: str
+    expected_next_command: str
+    expected_fix: str
+    ai_root_cause: Optional[str] = None
+    ai_confidence: Optional[str] = "High"
+    ai_evidence: Optional[str] = None
+
+class EscalateRequest(BaseModel):
+    escalation_reason: str
+    flagged_by: str
+    escalation_note: Optional[str] = ""
+
 # ----------------- API Endpoints -----------------
 
 @app.get("/")
@@ -63,7 +89,8 @@ def health_check():
         "status": "healthy",
         "service": "NetSage AI Backend",
         "version": "1.1.0",
-        "database_connected": os.path.exists(DB_PATH)
+        "database_connected": os.path.exists(DB_PATH),
+        "mode": os.getenv("NETSAGE_MODE", "mock").upper()
     }
 
 @app.get("/api/cases")
@@ -131,6 +158,95 @@ def get_case(case_id: str):
         raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
         
     return dict(row)
+
+@app.post("/api/cases")
+def create_case(case_data: CaseCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    case_id = case_data.id
+    if not case_id:
+        cursor.execute("SELECT count(*) as count FROM cases")
+        count = cursor.fetchone()['count']
+        case_id = f"CASE{count + 1:03d}"
+        while True:
+            cursor.execute("SELECT 1 FROM cases WHERE id = ?", (case_id,))
+            if not cursor.fetchone():
+                break
+            count += 1
+            case_id = f"CASE{count + 1:03d}"
+            
+    try:
+        cursor.execute("""
+            INSERT OR REPLACE INTO cases (
+                id, fault_type, concept_tag, osi_layer, severity, 
+                symptom, topology_note, show_output, expected_root_cause, 
+                expected_next_command, expected_fix, is_escalated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        """, (
+            case_id, case_data.fault_type, case_data.concept_tag, 
+            case_data.osi_layer, case_data.severity, case_data.symptom, 
+            case_data.topology_note, case_data.show_output, 
+            case_data.expected_root_cause, case_data.expected_next_command, 
+            case_data.expected_fix
+        ))
+        
+        cursor.execute("SELECT id FROM human_reviews WHERE case_id = ?", (case_id,))
+        existing = cursor.fetchone()
+        
+        ai_rc = case_data.ai_root_cause or case_data.expected_root_cause
+        ai_conf = case_data.ai_confidence or "High"
+        ai_ev = case_data.ai_evidence or case_data.show_output
+        
+        if existing:
+            cursor.execute("""
+                UPDATE human_reviews 
+                SET ai_root_cause = ?, ai_confidence = ?, ai_evidence = ?, 
+                    human_verdict = NULL, human_note = NULL, reviewer = NULL, submitted_at = NULL
+                WHERE case_id = ?
+            """, (ai_rc, ai_conf, ai_ev, case_id))
+        else:
+            cursor.execute("""
+                INSERT INTO human_reviews (
+                    case_id, ai_root_cause, ai_confidence, ai_evidence, 
+                    human_verdict, human_note, reviewer, submitted_at
+                ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL)
+            """, (case_id, ai_rc, ai_conf, ai_ev))
+            
+        conn.commit()
+        conn.close()
+        return {"status": "success", "id": case_id}
+    except Exception as e:
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"Failed to create case: {str(e)}")
+
+@app.post("/api/cases/{case_id}/escalate")
+def escalate_case(case_id: str, req: EscalateRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT 1 FROM cases WHERE id = ?", (case_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        
+    import datetime
+    flagged_at = datetime.datetime.now().strftime("%Y-%m-%d %I:%M %p")
+    
+    cursor.execute("""
+        UPDATE cases 
+        SET is_escalated = 1, 
+            escalation_reason = ?, 
+            flagged_by = ?, 
+            flagged_at = ?, 
+            escalation_note = ?
+        WHERE id = ?
+    """, (req.escalation_reason, req.flagged_by, flagged_at, req.escalation_note, case_id))
+    
+    conn.commit()
+    conn.close()
+    
+    return {"status": "success", "message": f"Case {case_id} has been escalated."}
 
 @app.get("/api/stats")
 def get_stats():
@@ -219,6 +335,8 @@ def submit_review(review: ReviewSubmission):
             review.human_verdict, review.human_note, review.reviewer, submitted_at
         ))
         
+    # Clear escalation status if the case was escalated
+    cursor.execute("UPDATE cases SET is_escalated = 0 WHERE id = ?", (review.case_id,))
     conn.commit()
     conn.close()
     
@@ -229,12 +347,9 @@ def submit_review(review: ReviewSubmission):
         "submitted_at": submitted_at
     }
 
-@app.post("/api/diagnose")
-def run_diagnosis(req: DiagnosisRequest):
+def get_mock_diagnosis(req: DiagnosisRequest) -> dict:
     """
-    Evidence-based diagnosis engine conforming to diagnose_prompt.md.
-    Analyzes symptoms and show command output to extract root cause, OSI layer,
-    confidence, cited evidence lines, next confirmation command, and suggested fix.
+    Evidence-based mock diagnosis engine conforming to diagnose_prompt.md.
     """
     symptom_lower = req.symptom.lower()
     show_output = req.show_output.strip()
@@ -352,6 +467,37 @@ def run_diagnosis(req: DiagnosisRequest):
         "next_command": "show running-config",
         "fix_steps": "Verify interface IP, VLAN, and routing table parameters against lab topology specification."
     }
+
+@app.post("/api/diagnose")
+def run_diagnosis(req: DiagnosisRequest):
+    """
+    Evidence-based diagnosis engine conforming to diagnose_prompt.md.
+    Invokes Gemini API when real mode is active, otherwise uses deterministic mock fallback.
+    Cross-checks outputs with a deterministic rule checker.
+    """
+    # 1. Run deterministic checks
+    parsed_config = rule_checker.parse_show_output(req.show_output)
+    checker_result = rule_checker.run_all_checks(parsed_config)
+    findings = checker_result.as_list()
+    
+    # 2. Get diagnosis result (Real LLM or Mock Fallback)
+    mode = os.getenv("NETSAGE_MODE", "mock").lower()
+    api_key = os.getenv("GEMINI_API_KEY")
+    
+    diagnosis = None
+    if (mode == "real" or api_key) and api_key:
+        try:
+            diagnosis = llm_helper.diagnose_with_llm(req.symptom, req.show_output, req.topology_note or "")
+        except Exception as e:
+            import sys
+            print(f"Warning: Gemini API call failed. Falling back to mock. Error: {str(e)}", file=sys.stderr)
+            
+    if not diagnosis:
+        diagnosis = get_mock_diagnosis(req)
+        
+    # 3. Add deterministic checker findings and return
+    diagnosis["rule_checker_findings"] = findings
+    return diagnosis
 
 @app.post("/api/rule-checker")
 def execute_rule_checker(payload: RuleCheckPayload):

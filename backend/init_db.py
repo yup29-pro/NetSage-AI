@@ -60,13 +60,27 @@ def init_db(force_recreate=False):
         )
     """)
 
-    # Migrate columns if existing table was missing them
+    # Migrate columns if existing human_reviews table was missing them
     cursor.execute("PRAGMA table_info(human_reviews)")
     cols = [col[1] for col in cursor.fetchall()]
     if "reviewer" not in cols:
         cursor.execute("ALTER TABLE human_reviews ADD COLUMN reviewer TEXT")
     if "submitted_at" not in cols:
         cursor.execute("ALTER TABLE human_reviews ADD COLUMN submitted_at TEXT")
+
+    # Migrate columns if existing cases table was missing escalation fields
+    cursor.execute("PRAGMA table_info(cases)")
+    cases_cols = [col[1] for col in cursor.fetchall()]
+    if "is_escalated" not in cases_cols:
+        cursor.execute("ALTER TABLE cases ADD COLUMN is_escalated INTEGER DEFAULT 0")
+    if "escalation_reason" not in cases_cols:
+        cursor.execute("ALTER TABLE cases ADD COLUMN escalation_reason TEXT")
+    if "flagged_by" not in cases_cols:
+        cursor.execute("ALTER TABLE cases ADD COLUMN flagged_by TEXT")
+    if "flagged_at" not in cases_cols:
+        cursor.execute("ALTER TABLE cases ADD COLUMN flagged_at TEXT")
+    if "escalation_note" not in cases_cols:
+        cursor.execute("ALTER TABLE cases ADD COLUMN escalation_note TEXT")
 
     conn.commit()
 
