@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Network, ShieldCheck, ClipboardCheck, ListChecks, UserCheck, Terminal, Cpu, Activity, Server, Wifi } from 'lucide-react';
+import { Network, ShieldCheck, ClipboardCheck, ListChecks, UserCheck, Terminal, Activity, Server, Wifi } from 'lucide-react';
 import Dashboard from './Dashboard';
 
 function App() {
