@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTo
 import { 
   Network, LayoutGrid, FileText, CheckSquare, Clock, AlertTriangle, 
   BookOpen, Code,
-  ChevronLeft, Bell, HelpCircle,
+  ChevronLeft, Bell, HelpCircle, Calendar, ChevronRight,
   Download, Search, MoreHorizontal, X,
   Check, Edit2, Save, UploadCloud, Sparkles, Info, ShieldAlert,
   ArrowRight, UserCheck, Bot, FileCheck, Code2, ChevronDown, ChevronUp,
@@ -248,6 +248,17 @@ export default function Dashboard({ onBack }) {
   
   const [showCodePreview, setShowCodePreview] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState("May 19 – May 25, 2025");
+  const [isDateDropdownOpen, setIsDateDropdownOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: "New case pending review in VLAN 30", time: "5 min ago", read: false },
+    { id: 2, message: "AI diagnosis agreement rate increased", time: "1 hour ago", read: false },
+    { id: 3, message: "Escalation resolved by Senior Reviewer", time: "2 hours ago", read: false }
+  ]);
   
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = sessionStorage.getItem('netsage_user');
@@ -686,46 +697,55 @@ export default function Dashboard({ onBack }) {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen shrink-0 relative z-20">
-        <div className="p-6 flex items-center gap-3 cursor-pointer" onClick={onBack}>
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-slate-200 flex flex-col h-screen shrink-0 relative z-20 transition-all duration-300`}>
+        <div className={`p-6 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-3'} cursor-pointer`} onClick={onBack}>
           <Network className="text-[#049FD9]" size={28} />
-          <span className="font-bold text-xl text-[#07182B] tracking-tight">NetSage AI</span>
+          {!isSidebarCollapsed && <span className="font-bold text-xl text-[#07182B] tracking-tight">NetSage AI</span>}
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-2 space-y-6 sidebar-scroll">
           <div>
-            <div onClick={() => setCurrentView('overview')} className={`rounded-lg p-2.5 flex items-center gap-3 font-medium mb-1 cursor-pointer transition-colors ${currentView === 'overview' ? 'bg-[#049FD9]/10 text-[#049FD9]' : 'text-slate-600 hover:bg-slate-50'}`}>
+            <div 
+              onClick={() => setCurrentView('overview')} 
+              className={`rounded-lg p-2.5 flex items-center font-medium mb-1 cursor-pointer transition-colors ${
+                currentView === 'overview' ? 'bg-[#049FD9]/10 text-[#049FD9]' : 'text-slate-600 hover:bg-slate-50'
+              } ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}
+              title={isSidebarCollapsed ? "Overview" : undefined}
+            >
               <LayoutGrid size={18} />
-              <span>Overview</span>
+              {!isSidebarCollapsed && <span>Overview</span>}
             </div>
             
             <div className="space-y-1 mt-4">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Workspace</h4>
-              <NavItem icon={Layers} label="Cases Master" badge={cases.length} isActive={currentView === 'cases'} onClick={() => setCurrentView('cases')} />
-              <NavItem icon={Sparkles} label="New Diagnosis" isActive={currentView === 'new_diagnosis'} onClick={() => setCurrentView('new_diagnosis')} />
-              <NavItem icon={CheckSquare} label="Review Queue" badge={reviewQueue.length} isActive={currentView === 'review_queue'} onClick={() => setCurrentView('review_queue')} />
-              <NavItem icon={Clock} label="My Reviews" isActive={currentView === 'my_reviews'} onClick={() => setCurrentView('my_reviews')} />
-              <NavItem icon={AlertTriangle} label="Escalations" badge={escalations.length} badgeColor="bg-red-500" isActive={currentView === 'escalations'} onClick={() => setCurrentView('escalations')} />
+              {!isSidebarCollapsed && <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Workspace</h4>}
+              <NavItem icon={Layers} label="Cases Master" badge={cases.length} isActive={currentView === 'cases'} onClick={() => setCurrentView('cases')} isCollapsed={isSidebarCollapsed} />
+              <NavItem icon={Sparkles} label="New Diagnosis" isActive={currentView === 'new_diagnosis'} onClick={() => setCurrentView('new_diagnosis')} isCollapsed={isSidebarCollapsed} />
+              <NavItem icon={CheckSquare} label="Review Queue" badge={reviewQueue.length} isActive={currentView === 'review_queue'} onClick={() => setCurrentView('review_queue')} isCollapsed={isSidebarCollapsed} />
+              <NavItem icon={Clock} label="My Reviews" isActive={currentView === 'my_reviews'} onClick={() => setCurrentView('my_reviews')} isCollapsed={isSidebarCollapsed} />
+              <NavItem icon={AlertTriangle} label="Escalations" badge={escalations.length} badgeColor="bg-red-500" isActive={currentView === 'escalations'} onClick={() => setCurrentView('escalations')} isCollapsed={isSidebarCollapsed} />
             </div>
           </div>
 
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Analytics</h4>
-            <NavItem icon={FileDown} label="Reports & Export" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} />
-            <NavItem icon={ShieldAlert} label="Responsible AI Log" isActive={currentView === 'responsible_ai_log'} onClick={() => setCurrentView('responsible_ai_log')} />
+            {!isSidebarCollapsed && <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Analytics</h4>}
+            <NavItem icon={FileDown} label="Reports & Export" isActive={currentView === 'reports'} onClick={() => setCurrentView('reports')} isCollapsed={isSidebarCollapsed} />
+            <NavItem icon={ShieldAlert} label="Responsible AI Log" isActive={currentView === 'responsible_ai_log'} onClick={() => setCurrentView('responsible_ai_log')} isCollapsed={isSidebarCollapsed} />
           </div>
 
           <div className="space-y-1">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Knowledge</h4>
-            <NavItem icon={BookOpen} label="Playbooks" isActive={currentView === 'playbooks'} onClick={() => setCurrentView('playbooks')} />
-            <NavItem icon={Code} label="Rule Checker" isActive={currentView === 'rule_checker'} onClick={() => setCurrentView('rule_checker')} />
+            {!isSidebarCollapsed && <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-3">Knowledge</h4>}
+            <NavItem icon={BookOpen} label="Playbooks" isActive={currentView === 'playbooks'} onClick={() => setCurrentView('playbooks')} isCollapsed={isSidebarCollapsed} />
+            <NavItem icon={Code} label="Rule Checker" isActive={currentView === 'rule_checker'} onClick={() => setCurrentView('rule_checker')} isCollapsed={isSidebarCollapsed} />
           </div>
         </div>
 
         <div className="p-4 border-t border-slate-200">
-          <div onClick={onBack} className="flex items-center gap-3 text-slate-500 hover:text-slate-800 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
-            <ChevronLeft size={18} />
-            <span className="text-sm font-medium">Exit to Hero</span>
+          <div 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            className={`flex items-center text-slate-500 hover:text-slate-800 cursor-pointer p-2 rounded-lg hover:bg-slate-50 ${isSidebarCollapsed ? 'justify-center' : 'gap-3'}`}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {!isSidebarCollapsed && <span className="text-sm font-medium">Collapse</span>}
           </div>
         </div>
       </aside>
@@ -765,21 +785,98 @@ export default function Dashboard({ onBack }) {
           </div>
           
           <div className="flex items-center gap-4">
-            {/* Backend connection pill */}
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-              isBackendConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
-              <span>{isBackendConnected ? 'API Connected' : 'Local Demo Mode'}</span>
+            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-100">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              Human Review Required
             </div>
 
             <div className="h-6 w-px bg-slate-200"></div>
 
-            <button className="relative text-slate-400 hover:text-slate-600">
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 bg-[#049FD9] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">3</span>
-            </button>
-            <button className="text-slate-400 hover:text-slate-600"><HelpCircle size={20} /></button>
+            {/* Notifications Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setIsNotificationsOpen(!isNotificationsOpen);
+                  setIsHelpOpen(false);
+                  setIsProfileDropdownOpen(false);
+                }}
+                className="relative text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <Bell size={20} />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#049FD9] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">
+                    {notifications.filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 top-full mt-3 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50 p-4 text-left"
+                  >
+                    <div className="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                      <span className="font-bold text-sm text-[#07182B]">Notifications</span>
+                      <button 
+                        onClick={() => {
+                          setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                          showToast("All notifications marked as read.");
+                        }}
+                        className="text-xs text-[#049FD9] hover:underline font-semibold cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {notifications.map(n => (
+                        <div key={n.id} className={`p-2 rounded-lg text-xs transition-colors hover:bg-slate-50 ${n.read ? 'text-slate-500' : 'bg-blue-50/50 text-[#07182B] font-medium'}`}>
+                          <div className="flex justify-between items-start gap-2">
+                            <span>{n.message}</span>
+                            {!n.read && <div className="w-1.5 h-1.5 bg-[#049FD9] rounded-full shrink-0 mt-1"></div>}
+                          </div>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{n.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Help Dropdown */}
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setIsHelpOpen(!isHelpOpen);
+                  setIsNotificationsOpen(false);
+                  setIsProfileDropdownOpen(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <HelpCircle size={20} />
+              </button>
+              <AnimatePresence>
+                {isHelpOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 top-full mt-3 w-72 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50 p-4 text-left"
+                  >
+                    <h4 className="font-bold text-sm text-[#07182B] mb-2 border-b border-slate-100 pb-2">NetSage AI Help</h4>
+                    <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
+                      <p><strong>Overview:</strong> High-level system statistics, reviewer metrics, and quick filter logs.</p>
+                      <p><strong>Cases Master:</strong> The master library of 30 common network faults and symptoms.</p>
+                      <p><strong>New Diagnosis:</strong> Paste Cisco show command outputs to run a real-time diagnosis.</p>
+                      <p><strong>Review Queue:</strong> Accept, edit, or reject AI diagnoses to commit them to playbooks.</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="flex items-center gap-3 ml-2 border-l border-slate-200 pl-4 relative" ref={profileDropdownRef}>
               <div 
                 className="flex items-center gap-3 cursor-pointer group"
@@ -864,13 +961,63 @@ export default function Dashboard({ onBack }) {
           {currentView === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="max-w-7xl mx-auto space-y-6">
               <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-100">
-                  <CheckCircle2 size={14} className="text-emerald-600" />
-                  Human-in-the-Loop Verification Active
-                </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setCurrentView('reports')} className="flex items-center gap-2 bg-white border border-slate-200 text-[#049FD9] px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-[#049FD9]/10 transition-colors">
-                    <Download size={16} /> Export Reports
+                  <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-100">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    Human Review Required
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                    isBackendConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                    <span>{isBackendConnected ? 'API Connected' : 'Local Demo Mode'}</span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 relative">
+                  {/* Date range picker */}
+                  <div className="relative">
+                    <button 
+                      onClick={() => setIsDateDropdownOpen(!isDateDropdownOpen)}
+                      className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      <Calendar size={16} /> {selectedDateRange} <ChevronRight size={14} className="rotate-90 ml-2" />
+                    </button>
+                    <AnimatePresence>
+                      {isDateDropdownOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-lg shadow-lg border border-slate-200 z-50 p-2 text-left"
+                        >
+                          {["May 19 – May 25, 2025", "May 26 – Jun 01, 2025", "Jun 02 – Jun 08, 2025"].map(d => (
+                            <button
+                              key={d}
+                              onClick={() => {
+                                setSelectedDateRange(d);
+                                setIsDateDropdownOpen(false);
+                                showToast(`Switched date filter to ${d}`);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 rounded transition-colors cursor-pointer"
+                            >
+                              {d}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Export button */}
+                  <button 
+                    onClick={() => {
+                      handleExportDownload('cases_csv');
+                      showToast("Exporting data as CSV...");
+                    }} 
+                    className="flex items-center gap-2 bg-[#049FD9] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0385B5] transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Download size={16} /> Export
                   </button>
                 </div>
               </div>
@@ -1803,19 +1950,20 @@ def check_gateway_mismatch(hosts, svis, result: CheckResult):
   );
 }
 
-function NavItem({ icon: Icon, label, badge, badgeColor = "bg-[#049FD9]", isActive, onClick }) {
+function NavItem({ icon: Icon, label, badge, badgeColor = "bg-[#049FD9]", isActive, onClick, isCollapsed }) {
   return (
     <div 
       onClick={onClick}
       className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group transition-colors ${
         isActive ? 'bg-[#049FD9]/10 text-[#049FD9]' : 'text-slate-600 hover:bg-slate-50 hover:text-[#07182B]'
-      }`}
+      } ${isCollapsed ? 'justify-center' : ''}`}
+      title={isCollapsed ? label : undefined}
     >
       <div className="flex items-center gap-3">
         <Icon size={18} className={`${isActive ? 'text-[#049FD9]' : 'text-slate-400 group-hover:text-slate-600'} transition-colors`} />
-        <span className="font-medium text-sm">{label}</span>
+        {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{label}</span>}
       </div>
-      {badge !== undefined && badge !== 0 && (
+      {!isCollapsed && badge !== undefined && badge !== 0 && (
         <span className={`${badgeColor} text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
           {badge}
         </span>
