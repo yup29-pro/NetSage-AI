@@ -18,3 +18,13 @@ dist/
 Thumbs.db
 .vscode/
 .idea/
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Project/Agent files
+PRD.md
+TechStack.md
+MEMORY.md
+user.md
